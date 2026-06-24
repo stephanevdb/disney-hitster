@@ -1,0 +1,13 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    ports:
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTP_PORT:-80}:80"
+    environment:
+      TLS_CN: ${TLS_CN:-dh.svdb.cc}
+    volumes:
+      - ${TLS_CERT_DIR:-./certs}:/etc/nginx/certs
+    restart: unless-stopped

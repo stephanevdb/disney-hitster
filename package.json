@@ -1,0 +1,31 @@
+{
+  "name": "disney-hitster",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run dev --workspace=web",
+    "build": "npm run sync-songs && npm run build --workspace=web",
+    "import": "tsx scripts/import-playlist.ts",
+    "import-xlsx": "tsx scripts/import-xlsx.ts",
+    "resolve-youtube": "tsx scripts/resolve-youtube.ts",
+    "generate-cards": "tsx scripts/generate-cards.ts",
+    "sync-songs": "tsx scripts/sync-songs-to-web.ts"
+  },
+  "workspaces": [
+    "web"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.12.3",
+    "@types/pdfkit": "^0.17.6",
+    "@types/qrcode": "^1.5.5",
+    "pdf-lib": "^1.17.1",
+    "qrcode": "^1.5.4",
+    "tsx": "^4.19.4",
+    "typescript": "~5.8.3"
+  },
+  "dependencies": {
+    "pdfkit": "^0.19.1",
+    "xlsx": "^0.18.5"
+  }
+}

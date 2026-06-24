@@ -1,0 +1,7 @@
+{
+  "buildCommand": "npm run sync-songs && npm run build",
+  "outputDirectory": "web/dist",
+  "installCommand": "npm install",
+  "framework": null,
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
