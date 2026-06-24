@@ -112,14 +112,27 @@ button {
 .neon-stage__rings {
   position: absolute;
   left: 50%;
-  top: 42%;
+  top: 50%;
   width: min(92vw, 420px);
   height: min(92vw, 420px);
   transform: translate(-50%, -50%);
   opacity: 0.55;
 }
 
-.neon-stage--active .neon-stage__rings {
+.neon-rings {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  opacity: 0.55;
+}
+
+.neon-rings--active {
+  opacity: 0.92;
+}
+
+.neon-stage--active .neon-stage__rings,
+.neon-stage--active .neon-rings {
   opacity: 0.92;
 }
 
@@ -149,19 +162,23 @@ button {
   filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.55));
 }
 
-.neon-stage__spin {
-  transform-origin: 200px 200px;
+.neon-stage__spin,
+.neon-rings__spin {
+  transform-origin: 0 0;
 }
 
-.neon-stage__spin--slow {
+.neon-stage__spin--slow,
+.neon-rings__spin--slow {
   animation: spin 18s linear infinite;
 }
 
-.neon-stage__spin--mid {
+.neon-stage__spin--mid,
+.neon-rings__spin--mid {
   animation: spin 12s linear infinite reverse;
 }
 
-.neon-stage__spin--fast {
+.neon-stage__spin--fast,
+.neon-rings__spin--fast {
   animation: spin 8s linear infinite;
 }
 
@@ -354,8 +371,30 @@ button {
   min-height: 42vh;
 }
 
+.player-orb-wrap {
+  position: relative;
+  width: min(78vw, 340px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+}
+
+.player-orb-wrap__rings {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.player-orb-wrap .player-countdown {
+  position: relative;
+  z-index: 1;
+}
+
 .play-orb {
   position: relative;
+  z-index: 1;
   width: 7.5rem;
   height: 7.5rem;
   border: none;

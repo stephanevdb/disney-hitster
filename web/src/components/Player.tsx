@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Song } from "../lib/songs";
 import { HitsterLogo } from "./HitsterLogo";
+import { NeonRings } from "./NeonRings";
 import { NeonStage } from "./NeonStage";
 import { YouTubePlayer } from "./YouTubePlayer";
 
@@ -72,7 +73,9 @@ export function Player({ song }: PlayerProps) {
 
   return (
     <div className="screen screen--dark screen--player">
-      <NeonStage active={playing} />
+      <div className="neon-stage neon-stage--player-bg" aria-hidden="true">
+        <div className="neon-stage__glow" />
+      </div>
       <YouTubePlayer
         videoId={song.youtubeId}
         playing={playing}
@@ -86,27 +89,30 @@ export function Player({ song }: PlayerProps) {
         </header>
 
         <div className="player-stage">
-          {countdown !== null ? (
-            <p className="player-countdown" aria-live="polite">
-              {countdown === 0 ? "Go!" : countdown}
-            </p>
-          ) : (
-            <button
-              type="button"
-              className={`play-orb${playing ? " play-orb--playing" : ""}`}
-              onClick={() => {
-                if (!armed) {
-                  beginPlayback();
-                  return;
-                }
-                setPlaying((value) => !value);
-              }}
-              aria-label={playing ? "Pause" : "Play"}
-            >
-              <span className="play-orb__pulse" />
-              <span className="play-orb__icon">{playing ? "❚❚" : "▶"}</span>
-            </button>
-          )}
+          <div className="player-orb-wrap">
+            <NeonRings active={playing} className="player-orb-wrap__rings" />
+            {countdown !== null ? (
+              <p className="player-countdown" aria-live="polite">
+                {countdown === 0 ? "Go!" : countdown}
+              </p>
+            ) : (
+              <button
+                type="button"
+                className={`play-orb${playing ? " play-orb--playing" : ""}`}
+                onClick={() => {
+                  if (!armed) {
+                    beginPlayback();
+                    return;
+                  }
+                  setPlaying((value) => !value);
+                }}
+                aria-label={playing ? "Pause" : "Play"}
+              >
+                <span className="play-orb__pulse" />
+                <span className="play-orb__icon">{playing ? "❚❚" : "▶"}</span>
+              </button>
+            )}
+          </div>
 
           <p className="player-status">
             {countdown !== null
