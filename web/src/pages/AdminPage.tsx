@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSongs } from "../context/SongsContext";
 import type { Song } from "../lib/songs";
 
 const TOKEN_KEY = "dh-admin-token";
@@ -54,6 +55,7 @@ async function saveYoutubeIds(token: string, updates: Array<{ id: string; youtub
 
 export function AdminPage() {
   const navigate = useNavigate();
+  const { refresh: refreshCatalog } = useSongs();
   const [token, setToken] = useState<string | null>(() => sessionStorage.getItem(TOKEN_KEY));
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -70,9 +72,9 @@ export function AdminPage() {
     async function load() {
       setLoading(true);
       try {
-        const response = await fetch("/api/songs", { cache: "no-store" });
+        const response = await fetch(`/api/songs?_=${Date.now()}`, { cache: "no-store" });
         if (!response.ok) throw new Error("Could not load songs.");
-        const data = (await response.json()) as { songs: Song[] };
+        const data = await readApiJson<{ songs: Song[] }>(response);
         if (!cancelled) {
           setSongs(
             data.songs.map((song) => ({
@@ -163,6 +165,7 @@ export function AdminPage() {
         }),
       );
       setSaveMessage(`Saved ${updates.length} YouTube ID${updates.length === 1 ? "" : "s"}.`);
+      await refreshCatalog();
     } catch (error) {
       setSaveMessage(error instanceof Error ? error.message : "Save failed.");
     } finally {

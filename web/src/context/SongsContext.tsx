@@ -21,7 +21,7 @@ const SongsContext = createContext<SongsContextValue | null>(null);
 
 async function fetchCatalog(): Promise<SongsFile | null> {
   try {
-    const response = await fetch("/api/songs", { cache: "no-store" });
+    const response = await fetch(`/api/songs?_=${Date.now()}`, { cache: "no-store" });
     if (!response.ok) return null;
     return (await response.json()) as SongsFile;
   } catch {

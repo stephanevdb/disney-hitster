@@ -12,5 +12,5 @@ services:
       SONGS_PATH: /data/songs.json
     volumes:
       - ${TLS_CERT_DIR:-./certs}:/etc/nginx/certs
-      - ./data/songs.json:/data/songs.json
+      - ./data:/data
     restart: unless-stopped

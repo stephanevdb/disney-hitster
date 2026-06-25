@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,7 +76,24 @@ async function loadSongs(): Promise<SongsFile> {
 }
 
 async function saveSongs(data: SongsFile) {
-  await writeFile(SONGS_PATH, `${JSON.stringify(data, null, 2)}\n`, "utf-8");
+  const content = `${JSON.stringify(data, null, 2)}\n`;
+  await mkdir(dirname(SONGS_PATH), { recursive: true });
+
+  const handle = await open(SONGS_PATH, "w");
+  try {
+    await handle.writeFile(content, "utf-8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+
+  // Keep bundled web copy in sync during local dev (no-op in Docker).
+  const webSongsPath = join(dirname(SONGS_PATH), "..", "web", "src", "data", "songs.json");
+  try {
+    await writeFile(webSongsPath, content, "utf-8");
+  } catch {
+    // web source path not present in production image
+  }
 }
 
 function setCors(res: ServerResponse) {
@@ -150,6 +167,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
         }
 
         await saveSongs(data);
+        console.log(`Saved ${body.updates.length} YouTube ID(s) to ${SONGS_PATH}`);
         sendJson(res, 200, { ok: true, songs: data.songs });
         return;
       }
