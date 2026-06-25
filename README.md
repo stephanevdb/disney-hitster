@@ -147,6 +147,31 @@ Use your existing Hitster board, tokens, and timeline. Follow the [official Hits
 - Use **3s countdown** mode to mirror the official Spotify Free experience
 - The DJ should avoid smartwatches that might show song info
 
+### Admin — edit YouTube IDs
+
+Password-protected editor at **`/admin`** (e.g. `https://dh.svdb.cc/admin`).
+
+**Local dev** (API + Vite run together):
+
+```bash
+ADMIN_PASSWORD=your-secret npm run dev --workspace=web
+```
+
+**Docker**:
+
+```bash
+cp .env.example .env   # set ADMIN_PASSWORD
+docker compose up --build -d
+```
+
+The admin API reads and writes `data/songs.json` (mounted at `/data/songs.json` in Docker). Changes take effect immediately for playback — no rebuild required.
+
+After editing, optionally sync the bundled copy for the next static build:
+
+```bash
+npm run sync-songs
+```
+
 ## Deploy to Vercel
 
 ```bash

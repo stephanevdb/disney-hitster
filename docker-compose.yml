@@ -8,6 +8,9 @@ services:
       - "${HTTP_PORT:-80}:80"
     environment:
       TLS_CN: ${TLS_CN:-dh.svdb.cc}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SONGS_PATH: /data/songs.json
     volumes:
       - ${TLS_CERT_DIR:-./certs}:/etc/nginx/certs
+      - ./data/songs.json:/data/songs.json
     restart: unless-stopped

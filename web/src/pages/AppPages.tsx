@@ -4,16 +4,12 @@ import { HitsterLogo } from "../components/HitsterLogo";
 import { NeonRings } from "../components/NeonRings";
 import { NeonStage } from "../components/NeonStage";
 import { Player } from "../components/Player";
-import songsData from "../data/songs.json";
-import { findSongById } from "../lib/songs";
-import type { SongsFile } from "../lib/songs";
-
-const catalog = songsData as SongsFile;
+import { useSongById, useSongs } from "../context/SongsContext";
 
 export function PlayPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const song = id ? findSongById(id, catalog.songs) : undefined;
+  const song = useSongById(id);
 
   if (!song) {
     return (
@@ -121,6 +117,7 @@ export function ScanPage() {
 
 export function HomePage() {
   const navigate = useNavigate();
+  const { catalog } = useSongs();
 
   return (
     <div className="screen screen--home">
