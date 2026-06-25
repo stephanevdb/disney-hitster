@@ -157,12 +157,14 @@ Password-protected editor at **`/admin`** (e.g. `https://dh.svdb.cc/admin`).
 ADMIN_PASSWORD=your-secret npm run dev --workspace=web
 ```
 
-**Docker**:
+**Docker** (create `.env` in the project root first):
 
 ```bash
-cp .env.example .env   # set ADMIN_PASSWORD
+cp .env.example .env   # set ADMIN_PASSWORD=your-secret
 docker compose up --build -d
 ```
+
+`docker compose` reads `.env` automatically for `ADMIN_PASSWORD`.
 
 The admin API reads and writes `data/songs.json` (mounted at `/data/songs.json` in Docker). Changes take effect immediately for playback — no rebuild required.
 

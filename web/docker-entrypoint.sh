@@ -18,12 +18,12 @@ if [ ! -f "${FULLCHAIN}" ] || [ ! -f "${PRIVKEY}" ]; then
     -subj "/CN=${TLS_CN}"
 fi
 
-if [ -n "${ADMIN_PASSWORD:-}" ]; then
-  echo "Starting admin API on port ${ADMIN_API_PORT:-3001}"
-  SONGS_PATH="${SONGS_PATH}" ADMIN_PASSWORD="${ADMIN_PASSWORD}" ADMIN_API_PORT="${ADMIN_API_PORT:-3001}" \
-    npx tsx /app/server/admin-api.ts &
-else
-  echo "ADMIN_PASSWORD not set — admin API disabled"
+echo "Starting admin API on port ${ADMIN_API_PORT:-3001}"
+SONGS_PATH="${SONGS_PATH}" ADMIN_PASSWORD="${ADMIN_PASSWORD:-}" ADMIN_API_PORT="${ADMIN_API_PORT:-3001}" \
+  npx tsx /app/server/admin-api.ts &
+
+if [ -z "${ADMIN_PASSWORD:-}" ]; then
+  echo "ADMIN_PASSWORD not set — admin login disabled (set it in .env)"
 fi
 
 exec nginx -g "daemon off;"

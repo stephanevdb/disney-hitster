@@ -9,13 +9,27 @@ interface EditableSong extends Song {
   draftYoutubeId: string;
 }
 
+async function readApiJson<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    if (response.status === 502 || text.trimStart().startsWith("<")) {
+      throw new Error(
+        "Admin API is not reachable. Ensure Docker was rebuilt and ADMIN_PASSWORD is set in .env.",
+      );
+    }
+    throw new Error("Server returned an unexpected response.");
+  }
+  return JSON.parse(text) as T;
+}
+
 async function login(password: string): Promise<string> {
   const response = await fetch("/api/admin/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ password }),
   });
-  const body = (await response.json()) as { token?: string; error?: string };
+  const body = await readApiJson<{ token?: string; error?: string }>(response);
   if (!response.ok || !body.token) {
     throw new Error(body.error ?? "Login failed.");
   }
@@ -31,7 +45,7 @@ async function saveYoutubeIds(token: string, updates: Array<{ id: string; youtub
     },
     body: JSON.stringify({ updates }),
   });
-  const body = (await response.json()) as { error?: string; songs?: Song[] };
+  const body = await readApiJson<{ error?: string; songs?: Song[] }>(response);
   if (!response.ok) {
     throw new Error(body.error ?? "Save failed.");
   }
