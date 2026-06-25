@@ -21,7 +21,7 @@ fi
 if [ -n "${ADMIN_PASSWORD:-}" ]; then
   echo "Starting admin API on port ${ADMIN_API_PORT:-3001}"
   SONGS_PATH="${SONGS_PATH}" ADMIN_PASSWORD="${ADMIN_PASSWORD}" ADMIN_API_PORT="${ADMIN_API_PORT:-3001}" \
-    tsx /app/server/admin-api.ts &
+    npx tsx /app/server/admin-api.ts &
 else
   echo "ADMIN_PASSWORD not set — admin API disabled"
 fi

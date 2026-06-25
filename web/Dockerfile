@@ -24,7 +24,8 @@ COPY web/package.json ./web/
 RUN npm ci --workspace=web --omit=dev
 
 COPY web/server ./server
-COPY web/nginx.conf /etc/nginx/conf.d/default.conf
+RUN mkdir -p /etc/nginx/http.d
+COPY web/nginx.conf /etc/nginx/http.d/default.conf
 COPY web/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
