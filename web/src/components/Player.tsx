@@ -80,7 +80,7 @@ export function Player({ song }: PlayerProps) {
         videoId={song.youtubeId}
         playing={playing}
         onPlayingChange={setPlaying}
-        onEnded={() => setPlaying(false)}
+        onEnded={stop}
       />
 
       <div className="screen__content player-layout">

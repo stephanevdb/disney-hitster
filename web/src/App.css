@@ -336,6 +336,8 @@ button {
 
 .home-badge {
   display: inline-flex;
+  position: relative;
+  z-index: 1;
   margin-top: 0.35rem;
   padding: 0.35rem 0.8rem;
   border-radius: 999px;
@@ -344,6 +346,21 @@ button {
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--neon-yellow);
+}
+
+.home-rings {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  pointer-events: none;
+}
+
+.home-rings__svg {
+  width: min(72vw, 300px);
+  height: min(72vw, 300px);
+  opacity: 0.92;
 }
 
 .home-actions {

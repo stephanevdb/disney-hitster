@@ -4,7 +4,6 @@ import type { Song } from "./types.ts";
 import {
   DECK_CODE,
   GRID,
-  MARGIN_MM,
   PAGE_HEIGHT_MM,
   PAGE_WIDTH_MM,
   SPOT_CUT,
@@ -25,8 +24,20 @@ import {
   cardColor,
   type Cmyk,
 } from "./card-colors.ts";
+import {
+  drawPrintSheetLabelPdfKit,
+  drawSheetRegMarksPdfKit,
+} from "./sheet-regmarks.ts";
 
 type PdfDoc = InstanceType<typeof PDFDocument>;
+
+/** Fixed typography for info card backs — same on every card (no per-string scaling). */
+const INFO_ARTIST_SIZE = 8;
+const INFO_ARTIST_SIZE_2LINE = 7.2;
+const INFO_YEAR_SIZE = 32;
+const INFO_TITLE_SIZE = 8.6;
+const INFO_MOVIE_SIZE = 7.6;
+const INFO_CODE_SIZE = 5;
 
 function wrapText(text: string, maxChars: number, maxLines: number): string[] {
   const words = text.split(/\s+/);
@@ -46,17 +57,10 @@ function wrapText(text: string, maxChars: number, maxLines: number): string[] {
   return lines.slice(0, maxLines);
 }
 
-function fitFontSize(
-  doc: PdfDoc,
-  text: string,
-  maxSize: number,
-  maxWidthPt: number,
-): number {
-  let size = maxSize;
-  while (size > 4 && doc.widthOfString(text) > maxWidthPt) {
-    size -= 0.5;
-  }
-  return size;
+function truncateText(text: string, maxChars: number): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxChars) return trimmed;
+  return `${trimmed.slice(0, Math.max(1, maxChars - 1)).trimEnd()}…`;
 }
 
 async function createQrPng(url: string): Promise<Buffer> {
@@ -76,11 +80,11 @@ function registerSpotColors(doc: PdfDoc) {
 }
 
 function setCmykFill(doc: PdfDoc, color: Cmyk) {
-  doc.fillColor(color[0], color[1], color[2], color[3]);
+  doc.fillColor(color);
 }
 
 function setCmykStroke(doc: PdfDoc, color: Cmyk) {
-  doc.strokeColor(color[0], color[1], color[2], color[3]);
+  doc.strokeColor(color);
 }
 
 function drawArcCmyk(
@@ -221,34 +225,9 @@ function drawCutContour(doc: PdfDoc, trimX: number, trimY: number) {
 }
 
 function drawRegistrationMarks(doc: PdfDoc, label: string) {
-  const pageW = mmToPt(PAGE_WIDTH_MM);
-  const pageH = mmToPt(PAGE_HEIGHT_MM);
-  const arm = mmToPt(6);
-  const inset = mmToPt(MARGIN_MM / 2);
-
   doc.save();
-  setCmykStroke(doc, PURE_BLACK);
-  doc.lineWidth(0.35);
-
-  const targets: Array<[number, number, number, number]> = [
-    [inset, inset, arm, 0],
-    [inset, inset, 0, arm],
-    [pageW - inset, inset, -arm, 0],
-    [pageW - inset, inset, 0, arm],
-    [inset, pageH - inset, arm, 0],
-    [inset, pageH - inset, 0, -arm],
-    [pageW - inset, pageH - inset, -arm, 0],
-    [pageW - inset, pageH - inset, 0, -arm],
-  ];
-
-  for (const [x, y, dx, dy] of targets) {
-    doc.moveTo(x, y).lineTo(x + dx, y + dy).stroke();
-  }
-
-  setCmykFill(doc, PURE_BLACK);
-  doc.fontSize(8).text(label, inset, pageH - inset - mmToPt(5), {
-    width: mmToPt(80),
-  });
+  drawSheetRegMarksPdfKit(doc, { cmyk: PURE_BLACK });
+  drawPrintSheetLabelPdfKit(doc, label, { cmyk: PURE_BLACK });
   doc.restore();
 }
 
@@ -355,7 +334,6 @@ function drawInfoCardCmyk(
   colorIndex: number,
 ) {
   const { art, trimX, trimY, trimW, trimH } = trimCoords(cellX, cellY);
-  const innerWidth = trimW - mmToPt(6);
 
   setCmykFill(doc, PURE_WHITE);
   doc.rect(mmToPt(art.x), mmToPt(art.y), mmToPt(art.width), mmToPt(art.height)).fill();
@@ -368,40 +346,36 @@ function drawInfoCardCmyk(
   doc.font("Helvetica-Bold");
   setCmykFill(doc, TEXT_BLACK);
   const artistLines = wrapText(song.artist, 18, 2);
-  const artistSize = artistLines.length > 1 ? 7.2 : 8;
+  const artistSize = artistLines.length > 1 ? INFO_ARTIST_SIZE_2LINE : INFO_ARTIST_SIZE;
   let textY = trimY + mmToPt(8.5);
+  doc.fontSize(artistSize);
   for (const line of artistLines) {
-    const size = fitFontSize(doc, line, artistSize, innerWidth);
-    doc.fontSize(size);
     doc.text(line, trimX, textY, { width: trimW, align: "center" });
     textY += mmToPt(artistLines.length > 1 ? 2.6 : 2.8);
   }
 
   const yearText = String(song.year);
-  const yearSize = fitFontSize(doc, yearText, yearText.length >= 4 ? 32 : 34, innerWidth);
-  doc.fontSize(yearSize);
+  doc.fontSize(INFO_YEAR_SIZE);
   doc.text(yearText, trimX, trimY + trimH * 0.38, { width: trimW, align: "center" });
 
   doc.font("Helvetica-BoldOblique");
   const titleLines = wrapText(song.title, 20, 2);
   textY = trimY + trimH - mmToPt(17);
+  doc.fontSize(INFO_TITLE_SIZE);
   for (const line of titleLines) {
-    const size = fitFontSize(doc, line, 8.6, innerWidth);
-    doc.fontSize(size);
     doc.text(line, trimX, textY, { width: trimW, align: "center" });
     textY += mmToPt(3.2);
   }
 
   if (song.movie) {
     doc.font("Helvetica-Bold");
-    const movieLine = wrapText(song.movie, 22, 1)[0] ?? "";
-    const movieSize = fitFontSize(doc, movieLine, 7.6, innerWidth);
-    doc.fontSize(movieSize);
+    const movieLine = truncateText(wrapText(song.movie, 22, 1)[0] ?? "", 28);
+    doc.fontSize(INFO_MOVIE_SIZE);
     doc.text(movieLine, trimX, textY, { width: trimW, align: "center" });
   }
 
   doc.font("Helvetica-Bold");
-  doc.fontSize(5);
+  doc.fontSize(INFO_CODE_SIZE);
   setCmykFill(doc, [0, 0, 0, 55]);
   doc.text(DECK_CODE, trimX + mmToPt(2), trimY + trimH - mmToPt(5));
   doc.text(song.id, trimX + trimW - mmToPt(8), trimY + trimH - mmToPt(5), {
@@ -512,6 +486,58 @@ export async function buildVerteLithPdf(
             drawScanCardSpots(doc, x, y, seed);
           } else {
             drawInfoCardSpots(doc, x, y);
+          }
+        }
+
+        drawRegistrationMarks(doc, label);
+      }
+      doc.end();
+    };
+
+    run().catch(reject);
+  });
+}
+
+/** CMYK composite only — no Spot_White, Spot_Varnish, or CutContour. */
+export async function buildFlatCmykPdf(
+  songs: Song[],
+  baseUrl: string,
+  side: "front" | "back",
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    const doc = new PDFDocument({
+      size: [mmToPt(PAGE_WIDTH_MM), mmToPt(PAGE_HEIGHT_MM)],
+      autoFirstPage: false,
+    });
+
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const pageCount = Math.ceil(songs.length / GRID.cardsPerPage);
+
+    const run = async () => {
+      for (let page = 0; page < pageCount; page++) {
+        doc.addPage();
+        const startIndex = page * GRID.cardsPerPage;
+        const label =
+          side === "front"
+            ? "Disney Hitster — FRONT flat CMYK"
+            : "Disney Hitster — BACK flat CMYK";
+
+        const count = Math.min(GRID.cardsPerPage, songs.length - startIndex);
+
+        for (let i = 0; i < count; i++) {
+          const song = songs[startIndex + i];
+          const indexOnPage = side === "back" ? GRID.cardsPerPage - 1 - i : i;
+          const { x, y } = cardOrigin(indexOnPage);
+          const seed = startIndex + i;
+
+          if (side === "front") {
+            await drawScanCardCmyk(doc, x, y, song, baseUrl, seed);
+          } else {
+            drawInfoCardCmyk(doc, x, y, song, seed);
           }
         }
 

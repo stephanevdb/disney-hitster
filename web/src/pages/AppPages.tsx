@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { HitsterLogo } from "../components/HitsterLogo";
+import { NeonRings } from "../components/NeonRings";
 import { NeonStage } from "../components/NeonStage";
 import { Player } from "../components/Player";
 import songsData from "../data/songs.json";
@@ -61,7 +62,7 @@ export function ScanPage() {
             setError("QR code is not a Disney Hitster card.");
           },
           {
-            highlightScanRegion: true,
+            highlightScanRegion: false,
             preferredCamera: "environment",
           },
         );
@@ -123,7 +124,7 @@ export function HomePage() {
 
   return (
     <div className="screen screen--home">
-      <NeonStage active />
+      <NeonStage active showRings={false} />
       <div className="screen__content home-layout">
         <div className="home-hero">
           <p className="home-eyebrow">Custom expansion pack</p>
@@ -133,6 +134,10 @@ export function HomePage() {
             tokens, and timeline.
           </p>
           <span className="home-badge">{catalog.songs.length} songs</span>
+        </div>
+
+        <div className="home-rings" aria-hidden="true">
+          <NeonRings active className="home-rings__svg" />
         </div>
 
         <div className="home-actions">

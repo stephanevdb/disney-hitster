@@ -12,6 +12,14 @@ export const DECK_CODE = "DH";
 export const SPOT_WHITE = "Spot_White";
 export const SPOT_VARNISH = "Spot_Varnish";
 export const SPOT_CUT = "CutContour";
+export const SPOT_THRU_CUT = "Thru-cut";
+export const SPOT_REGMARK = "Regmark";
+
+/** Summa / sheet alignment circles at page corners (OPOS). */
+export const REG_MARK_DIAMETER_MM = 5;
+export const REG_MARK_INSET_MM = 5;
+/** Additional solid regmarks along the sheet perimeter (outside edges). */
+export const REG_MARK_SPACING_MM = 300;
 
 export function mmToPt(mm: number) {
   return mm * MM_TO_PT;

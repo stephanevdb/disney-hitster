@@ -11,7 +11,6 @@ import type { Song } from "./types.ts";
 import {
   DECK_CODE,
   GRID,
-  MARGIN_MM,
   PAGE_HEIGHT_MM,
   PAGE_WIDTH_MM,
   TRIM_MM,
@@ -21,6 +20,10 @@ import {
   playUrl,
   trimBox,
 } from "./card-layout.ts";
+import {
+  drawPrintSheetLabelPdfLib,
+  drawSheetRegMarksPdfLib,
+} from "./sheet-regmarks.ts";
 import {
   NEON_RINGS as NEON_RINGS_CMYK,
   PURE_BLACK,
@@ -229,38 +232,8 @@ function drawCropMarks(page: PDFPage, trim: { x: number; y: number; width: numbe
 }
 
 function drawRegistrationMarks(page: PDFPage, label: string, font: PDFFont) {
-  const pageW = mmToPt(PAGE_WIDTH_MM);
-  const pageH = mmToPt(PAGE_HEIGHT_MM);
-  const arm = mmToPt(6);
-  const inset = mmToPt(MARGIN_MM / 2);
-
-  const marks: Array<[number, number, number, number]> = [
-    [inset, pageH - inset, arm, 0],
-    [inset, pageH - inset, 0, -arm],
-    [pageW - inset, pageH - inset, -arm, 0],
-    [pageW - inset, pageH - inset, 0, -arm],
-    [inset, inset, arm, 0],
-    [inset, inset, 0, arm],
-    [pageW - inset, inset, -arm, 0],
-    [pageW - inset, inset, 0, arm],
-  ];
-
-  for (const [x, y, dx, dy] of marks) {
-    page.drawLine({
-      start: { x, y },
-      end: { x: x + dx, y: y + dy },
-      thickness: 0.35,
-      color: TEXT,
-    });
-  }
-
-  page.drawText(label, {
-    x: inset,
-    y: pageH - inset - mmToPt(5),
-    size: 8,
-    font,
-    color: TEXT,
-  });
+  drawSheetRegMarksPdfLib(page, TEXT);
+  drawPrintSheetLabelPdfLib(page, label, font, TEXT);
 }
 
 async function createQrPng(url: string): Promise<Uint8Array> {

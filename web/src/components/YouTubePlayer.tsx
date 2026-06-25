@@ -40,15 +40,24 @@ function loadYouTubeApi(): Promise<void> {
   if (apiPromise) return apiPromise;
 
   apiPromise = new Promise((resolve) => {
-    const existing = document.getElementById("youtube-iframe-api");
-    if (!existing) {
+    if (window.YT?.Player) {
+      resolve();
+      return;
+    }
+
+    const previous = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      previous?.();
+      resolve();
+    };
+
+    if (!document.getElementById("youtube-iframe-api")) {
       const script = document.createElement("script");
       script.id = "youtube-iframe-api";
       script.src = "https://www.youtube.com/iframe_api";
-      document.body.appendChild(script);
+      script.async = true;
+      document.head.appendChild(script);
     }
-
-    window.onYouTubeIframeAPIReady = () => resolve();
   });
 
   return apiPromise;
@@ -69,7 +78,14 @@ export function YouTubePlayer({
 }: YouTubePlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
+  const playingRef = useRef(playing);
+  const onPlayingChangeRef = useRef(onPlayingChange);
+  const onEndedRef = useRef(onEnded);
   const [ready, setReady] = useState(false);
+
+  playingRef.current = playing;
+  onPlayingChangeRef.current = onPlayingChange;
+  onEndedRef.current = onEnded;
 
   useEffect(() => {
     let cancelled = false;
@@ -81,6 +97,9 @@ export function YouTubePlayer({
 
       containerRef.current.id = elementId;
       playerRef.current?.destroy();
+      playerRef.current = null;
+      setReady(false);
+
       playerRef.current = new window.YT.Player(elementId, {
         height: "1",
         width: "1",
@@ -95,32 +114,37 @@ export function YouTubePlayer({
           playsinline: 1,
         },
         events: {
-          onReady: () => {
-            if (!cancelled) setReady(true);
+          onReady: (event) => {
+            if (cancelled) return;
+            playerRef.current = event.target;
+            setReady(true);
+            if (playingRef.current) {
+              event.target.playVideo();
+            }
           },
           onStateChange: (event) => {
             if (event.data === window.YT!.PlayerState.PLAYING) {
-              onPlayingChange(true);
+              onPlayingChangeRef.current(true);
             } else if (event.data === window.YT!.PlayerState.PAUSED) {
-              onPlayingChange(false);
+              onPlayingChangeRef.current(false);
             } else if (event.data === window.YT!.PlayerState.ENDED) {
-              onPlayingChange(false);
-              onEnded();
+              onPlayingChangeRef.current(false);
+              onEndedRef.current();
             }
           },
         },
       });
     }
 
-    setReady(false);
     init();
 
     return () => {
       cancelled = true;
       playerRef.current?.destroy();
       playerRef.current = null;
+      setReady(false);
     };
-  }, [videoId, onPlayingChange, onEnded]);
+  }, [videoId]);
 
   useEffect(() => {
     if (!ready || !playerRef.current) return;
