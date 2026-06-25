@@ -10,6 +10,19 @@ interface EditableSong extends Song {
   draftYoutubeId: string;
 }
 
+interface SongsMeta {
+  path: string;
+  size: number | null;
+  mtimeMs: number | null;
+  mtime: string | null;
+}
+
+interface SaveResult {
+  songs: Song[];
+  meta?: SongsMeta;
+  verified?: boolean;
+}
+
 async function readApiJson<T>(response: Response): Promise<T> {
   const text = await response.text();
   const contentType = response.headers.get("content-type") ?? "";
@@ -45,12 +58,21 @@ async function saveYoutubeIds(token: string, updates: Array<{ id: string; youtub
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ updates }),
+    cache: "no-store",
   });
-  const body = await readApiJson<{ error?: string; songs?: Song[] }>(response);
+  const body = await readApiJson<{ error?: string; songs?: Song[]; meta?: SongsMeta; verified?: boolean }>(
+    response,
+  );
   if (!response.ok) {
     throw new Error(body.error ?? "Save failed.");
   }
-  return body.songs ?? [];
+  return { songs: body.songs ?? [], meta: body.meta, verified: body.verified } satisfies SaveResult;
+}
+
+function formatMeta(meta: SongsMeta | null) {
+  if (!meta?.mtime) return null;
+  const when = new Date(meta.mtime).toLocaleString();
+  return `Server file: ${meta.path} · last updated ${when}`;
 }
 
 export function AdminPage() {
@@ -62,6 +84,7 @@ export function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [fileMeta, setFileMeta] = useState<SongsMeta | null>(null);
   const [filter, setFilter] = useState<"all" | "missing">("all");
   const [songs, setSongs] = useState<EditableSong[]>([]);
 
@@ -74,8 +97,9 @@ export function AdminPage() {
       try {
         const response = await fetch(`/api/songs?_=${Date.now()}`, { cache: "no-store" });
         if (!response.ok) throw new Error("Could not load songs.");
-        const data = await readApiJson<{ songs: Song[] }>(response);
+        const data = await readApiJson<{ songs: Song[]; meta?: SongsMeta }>(response);
         if (!cancelled) {
+          setFileMeta(data.meta ?? null);
           setSongs(
             data.songs.map((song) => ({
               ...song,
@@ -151,7 +175,7 @@ export function AdminPage() {
     setSaving(true);
     setSaveMessage(null);
     try {
-      const saved = await saveYoutubeIds(token, updates);
+      const { songs: saved, meta, verified } = await saveYoutubeIds(token, updates);
       const byId = new Map(saved.map((song) => [song.id, song]));
       setSongs((current) =>
         current.map((song) => {
@@ -164,7 +188,29 @@ export function AdminPage() {
           };
         }),
       );
-      setSaveMessage(`Saved ${updates.length} YouTube ID${updates.length === 1 ? "" : "s"}.`);
+
+      const check = await fetch(`/api/songs?_=${Date.now()}`, { cache: "no-store" });
+      if (!check.ok) throw new Error("Saved, but could not re-read the server file.");
+      const checked = await readApiJson<{ songs: Song[]; meta?: SongsMeta }>(check);
+      setFileMeta(checked.meta ?? meta ?? null);
+
+      const checkedById = new Map(checked.songs.map((song) => [song.id, song]));
+      const failed = updates.filter((update) => {
+        const song = checkedById.get(update.id);
+        const expected = update.youtubeId?.trim() ?? "";
+        const actual = song?.youtubeId ?? "";
+        return expected !== actual;
+      });
+
+      if (!verified || failed.length) {
+        throw new Error(
+          "Save did not stick on the server. Redeploy with docker compose (./data:/data volume) and check container logs.",
+        );
+      }
+
+      setSaveMessage(
+        `Saved ${updates.length} YouTube ID${updates.length === 1 ? "" : "s"}${meta?.mtime ? ` · verified ${new Date(meta.mtime).toLocaleTimeString()}` : ""}.`,
+      );
       await refreshCatalog();
     } catch (error) {
       setSaveMessage(error instanceof Error ? error.message : "Save failed.");
@@ -212,6 +258,7 @@ export function AdminPage() {
             <p className="screen-copy">
               {songs.length} songs · {changedCount} unsaved change{changedCount === 1 ? "" : "s"}
             </p>
+            {fileMeta ? <p className="screen-copy admin-meta">{formatMeta(fileMeta)}</p> : null}
           </div>
           <div className="admin-header__actions">
             <button type="button" className="btn btn--ghost" onClick={() => navigate("/")}>

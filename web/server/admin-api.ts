@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { mkdir, open, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -56,9 +56,26 @@ function isAuthed(req: IncomingMessage): boolean {
 function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store",
+    "Cache-Control": "no-store, no-cache, must-revalidate",
+    Pragma: "no-cache",
+    Expires: "0",
+    "CDN-Cache-Control": "no-store",
   });
   res.end(JSON.stringify(body));
+}
+
+async function songsFileMeta() {
+  try {
+    const info = await stat(SONGS_PATH);
+    return {
+      path: SONGS_PATH,
+      size: info.size,
+      mtimeMs: info.mtimeMs,
+      mtime: info.mtime.toISOString(),
+    };
+  } catch {
+    return { path: SONGS_PATH, size: null, mtimeMs: null, mtime: null };
+  }
 }
 
 async function readJson<T>(req: IncomingMessage): Promise<T> {
@@ -77,15 +94,12 @@ async function loadSongs(): Promise<SongsFile> {
 
 async function saveSongs(data: SongsFile) {
   const content = `${JSON.stringify(data, null, 2)}\n`;
-  await mkdir(dirname(SONGS_PATH), { recursive: true });
+  const dir = dirname(SONGS_PATH);
+  await mkdir(dir, { recursive: true });
 
-  const handle = await open(SONGS_PATH, "w");
-  try {
-    await handle.writeFile(content, "utf-8");
-    await handle.sync();
-  } finally {
-    await handle.close();
-  }
+  const tempPath = join(dir, `.songs-${process.pid}-${Date.now()}.tmp`);
+  await writeFile(tempPath, content, "utf-8");
+  await rename(tempPath, SONGS_PATH);
 
   // Keep bundled web copy in sync during local dev (no-op in Docker).
   const webSongsPath = join(dirname(SONGS_PATH), "..", "web", "src", "data", "songs.json");
@@ -94,6 +108,34 @@ async function saveSongs(data: SongsFile) {
   } catch {
     // web source path not present in production image
   }
+}
+
+function normalizeYoutubeId(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  return trimmed || undefined;
+}
+
+function verifyUpdates(
+  songs: Song[],
+  updates: Array<{ id: string; youtubeId: string | null }>,
+) {
+  const byId = new Map(songs.map((song) => [song.id, song]));
+  const mismatches: Array<{ id: string; expected?: string; actual?: string }> = [];
+
+  for (const update of updates) {
+    const song = byId.get(update.id);
+    if (!song) {
+      mismatches.push({ id: update.id, expected: normalizeYoutubeId(update.youtubeId) });
+      continue;
+    }
+    const expected = normalizeYoutubeId(update.youtubeId);
+    const actual = song.youtubeId;
+    if (expected !== actual) {
+      mismatches.push({ id: update.id, expected, actual });
+    }
+  }
+
+  return mismatches;
 }
 
 function setCors(res: ServerResponse) {
@@ -115,9 +157,17 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   const path = url.pathname;
 
   try {
+    if (req.method === "GET" && path === "/api/health") {
+      sendJson(res, 200, {
+        ok: true,
+        songs: await songsFileMeta(),
+      });
+      return;
+    }
+
     if (req.method === "GET" && path === "/api/songs") {
       const data = await loadSongs();
-      sendJson(res, 200, data);
+      sendJson(res, 200, { ...data, meta: await songsFileMeta() });
       return;
     }
 
@@ -154,10 +204,14 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
 
         const data = await loadSongs();
         const byId = new Map(data.songs.map((song) => [song.id, song]));
+        const missingIds: string[] = [];
 
         for (const update of body.updates) {
           const song = byId.get(update.id);
-          if (!song) continue;
+          if (!song) {
+            missingIds.push(update.id);
+            continue;
+          }
           const trimmed = update.youtubeId?.trim() ?? "";
           if (!trimmed) {
             delete song.youtubeId;
@@ -166,9 +220,33 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse) {
           }
         }
 
+        if (missingIds.length) {
+          sendJson(res, 400, {
+            error: `Unknown song id(s): ${missingIds.join(", ")}`,
+          });
+          return;
+        }
+
         await saveSongs(data);
-        console.log(`Saved ${body.updates.length} YouTube ID(s) to ${SONGS_PATH}`);
-        sendJson(res, 200, { ok: true, songs: data.songs });
+
+        const verified = await loadSongs();
+        const mismatches = verifyUpdates(verified.songs, body.updates);
+        if (mismatches.length) {
+          console.error("Save verification failed:", mismatches);
+          sendJson(res, 500, {
+            error:
+              "Save did not persist to disk. Redeploy with the ./data:/data volume mount (not a single-file mount).",
+            mismatches,
+            meta: await songsFileMeta(),
+          });
+          return;
+        }
+
+        const meta = await songsFileMeta();
+        console.log(
+          `Saved ${body.updates.length} YouTube ID(s) to ${SONGS_PATH} (mtime ${meta.mtime})`,
+        );
+        sendJson(res, 200, { ok: true, songs: verified.songs, meta, verified: true });
         return;
       }
     }
